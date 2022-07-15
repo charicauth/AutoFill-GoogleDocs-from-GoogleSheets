@@ -1,0 +1,47 @@
+//Author: Josh Bellingham
+//Description: A Google script program that take informations from a spreadsheet and create printouts in Google Docs. Use AutoFill Docs menu option added to Spreadsheet to make it work.
+
+//Creates menu option on spreadsheet
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  const menu = ui.createMenu('AutoFill Docs');
+  menu.addItem('Create New Docs', 'createNewGoogleDocs');
+  menu.addToUi();
+
+}
+
+//Defines where to get template and info from
+function createNewGoogleDocs() {
+ 
+  const googleDocTemplate = DriveApp.getFileById('14MJNd37pn6D-EmNKCQzXXvxJCcOAoB3KS-TlDgZuWMI'); //to use on your own projects replace the file ID with the file ID of your Google Docs template.
+  const destinationFolder = DriveApp.getFolderById('1AVH5oH3OkWgeNMb7trBnfaZkMV9K6eF6'); //replace with the folder ID for the folder you want to the printouts to be stored in
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('JobBoard'); //Replace with the name of your spreadsheet
+  const rows = sheet.getDataRange().getValues();
+  
+  rows.forEach(function(row, index) {
+    if (index === 0) return;
+    if (row[11]) return;
+    const copy = googleDocTemplate.makeCopy(`${row[1]}, ${row[0]} Printout`, destinationFolder);
+    const doc = DocumentApp.openById(copy.getId())
+    const body = doc.getBody();
+
+
+//Replacing text (to use in your own projects replace the fill areas, {{example}}, and the row numbers)
+    body.replaceText('{{Company}}', row[1]);
+    body.replaceText('{{jobTitle}}', row[0]);
+    body.replaceText('{{Status}}', row[3]);
+    body.replaceText('{{Location}}', row[4]);
+    body.replaceText('{{Description}}', row[7]);
+    body.replaceText('{{Qualifications}}', row[6]);
+    body.replaceText('{{Wage}}', row[5]);
+    body.replaceText('{{Apply}}', row[10]);
+      
+
+//Close and saves new doc
+    doc.saveAndClose();
+    const url = doc.getUrl();
+    sheet.getRange(index + 1, 12).setValue(url)
+    
+  })
+
+}
