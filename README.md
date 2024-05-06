@@ -5,3 +5,5 @@ I'm currently using it to input information about job postings into the spreadsh
 ## Future-Plans
 I hope to update this program so that you can insert a company logo in a cell and have it replace a placeholder image in the template, but the functionality is still lacking in Google Apps Script.
 If you have any ideas of how to implement images in a program like this, it would be greatly appreciated!
+
+https://developers.google.com/apps-script/reference/drive/drive-app?hl=fr
