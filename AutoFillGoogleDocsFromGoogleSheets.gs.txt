@@ -1,47 +1,162 @@
-//Author: Josh Bellingham
-//Description: A Google script program that take informations from a spreadsheet and create printouts in Google Docs. Use AutoFill Docs menu option added to Spreadsheet to make it work.
+//to use on your own projects replace the file ID with the file ID of your Google Docs template.
+const googleDocTemplate = DriveApp.getFileById('1n7atkeLPfmlTWieZqmmbR1rcIBGPgzzoF8lI8z16sZo');
+//replace with the folder ID for the folder you want to the printouts to be stored in
+const destinationFolder = DriveApp.getFolderById('1h-AOLQxc9qOb8Y-AzssjnjCqt0q6fhUA');
 
-//Creates menu option on spreadsheet
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  const menu = ui.createMenu('AutoFill Docs');
-  menu.addItem('Create New Docs', 'createNewGoogleDocs');
+  const menu = ui.createMenu('AutoFill Replica');
+  menu.addItem('Nuova Replica', 'createNewGoogleDoc');
+  menu.addItem('Registra PEC', 'createNewFolder');
   menu.addToUi();
+}
+
+//Date formatting
+function formatDate(dataEntrata) {
+  let date;
+  if (!dataEntrata) {
+    date = new Date(); // If no date string provided, default to today
+  }else {
+    date = new Date(dataEntrata);
+  }
+
+  let yyyy = date.getFullYear();
+  let mm = date.getMonth() + 1; // Months start at 0!
+  let dd = date.getDate();
+
+  if (dd < 10) dd = '0' + dd;
+  if (mm < 10) mm = '0' + mm;
+
+  return dd + '/' + mm + '/' + yyyy;
+}
+
+//Prompting for the line to access
+function uiPrompt() {
+  // Prompt the user for the row number
+  const userInput = SpreadsheetApp.getUi().prompt('Enter the row number(s) or range of rows to generate the document for:').getResponseText();
+  const targetRow = userInput; // Convert user input to an integer
+  
+  // Check if the input is a valid number
+  if (isNaN(targetRow)) {
+    SpreadsheetApp.getUi().alert('Please enter a valid row number.');
+    return;
+  }
+  return parseInt(targetRow);  // return user input
+}
+
+//Retrieving Data from the specified line
+function retrieveData(lineNumber) {
+  // Get the values of the specified row
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const range = sheet.getRange(lineNumber, 1, 1, sheet.getLastColumn());
+  const rowValues = range.getValues()[0];
+  const orgnizedInfos = { 
+    "interno": rowValues[0],
+    "data-ricezione": rowValues[1],
+    "nome-cliente": rowValues[4],
+    "tipo-richiesta": rowValues[6],
+    "procedimento-penale": rowValues[7],
+    "tribunale": rowValues[14],
+    "protocollo-polizia": rowValues[8],
+    "stato-del-conto": rowValues[9],
+    "organo-procedente": rowValues[11],
+    "pec-organo-procedente": rowValues[12],
+    "referente": rowValues[15],
+  };
+
+  return orgnizedInfos; //returning the organized informations.
 
 }
 
-//Defines where to get template and info from
-function createNewGoogleDocs() {
- 
-  const googleDocTemplate = DriveApp.getFileById('14MJNd37pn6D-EmNKCQzXXvxJCcOAoB3KS-TlDgZuWMI'); //to use on your own projects replace the file ID with the file ID of your Google Docs template.
-  const destinationFolder = DriveApp.getFolderById('1AVH5oH3OkWgeNMb7trBnfaZkMV9K6eF6'); //replace with the folder ID for the folder you want to the printouts to be stored in
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('JobBoard'); //Replace with the name of your spreadsheet
-  const rows = sheet.getDataRange().getValues();
+function generateDynamicObject(data) {
+  //Object of the replica to complete
+  let dynamicOggetto = 'Richiesta di Accertamenti Bancari';
   
-  rows.forEach(function(row, index) {
-    if (index === 0) return;
-    if (row[11]) return;
-    const copy = googleDocTemplate.makeCopy(`${row[1]}, ${row[0]} Printout`, destinationFolder);
-    const doc = DocumentApp.openById(copy.getId())
-    const body = doc.getBody();
+  //filling depending on the conditions
+    if (!data["protocollo-polizia"] || data["protocollo-polizia"] === 'N/A') {
+    dynamicOggetto = dynamicOggetto + ' emessa';
+    } else {
+      dynamicOggetto = dynamicOggetto + ' n. prot ' + data["protocollo-polizia"] + ' emesso';
+    }
+    if (data["procedimento-penale"] && data["procedimento-penale"] !== 'N/A') {
+      dynamicOggetto = dynamicOggetto + ' nell’ambito del procedimento penale n°' + data["procedimento-penale"];
+    }
+    if (data["tribunale"] && data["tribunale"] !== 'N/A') {
+      dynamicOggetto = dynamicOggetto + ' presso il' + data["tribunale"];
+    }
+    if (data["interno"] && data["interno"] !== 'N/A') {
+      dynamicOggetto = dynamicOggetto + ' (Interno ' + data["interno"] + ').';
+    }
 
+    return dynamicOggetto; //Returning the Object to use
+}
 
-//Replacing text (to use in your own projects replace the fill areas, {{example}}, and the row numbers)
-    body.replaceText('{{Company}}', row[1]);
-    body.replaceText('{{jobTitle}}', row[0]);
-    body.replaceText('{{Status}}', row[3]);
-    body.replaceText('{{Location}}', row[4]);
-    body.replaceText('{{Description}}', row[7]);
-    body.replaceText('{{Qualifications}}', row[6]);
-    body.replaceText('{{Wage}}', row[5]);
-    body.replaceText('{{Apply}}', row[10]);
-      
+//Defines where to get template and info from
+function createNewGoogleDoc() {
 
-//Close and saves new doc
-    doc.saveAndClose();
-    const url = doc.getUrl();
-    sheet.getRange(index + 1, 12).setValue(url)
-    
-  })
+  // Prompt the user for the row number
+  const userInput = uiPrompt();
+  
+  // Get the values of the specified row
+  const data = retrieveData(userInput);
+
+   Logger.log("state" + data["stato-del-conto"]);
+
+  //creation of the object
+  const dynamicOggetto = generateDynamicObject(data);
+  
+  let folder = createNewFolder(data,userInput);
+  
+  const copy = googleDocTemplate.makeCopy(dynamicOggetto, folder);
+  const doc = DocumentApp.openById(copy.getId())
+  const body = doc.getBody();
+
+  //Replacing text (to use in your own projects replace the fill areas, {{example}}, and the row numbers)
+  body.replaceText('{{Timestamp}}', formatDate());
+  body.replaceText('{{Organo procedente}}', data["organo-procedente"]);
+  body.replaceText('{{Pec organo procedente}}', data["pec-organo-procedente"]);
+  body.replaceText('{{Oggetto}}', dynamicOggetto);
+  body.replaceText('{{Data ricezione}}', formatDate(data["data-ricezione"]));
+
+  if (data["referente"] && data["referente"] !== 'N/A') {
+    body.replaceText('{{Referente}}', 'All’attenzione del: ' + data["referente"]);
+  } else {
+    body.replaceText('{{Referente}}', '');
+  }
+  if (data["protocollo-polizia"] && data["protocollo-polizia"] !== 'N/A') {
+    body.replaceText('{{Avente Protocollo polizia}}', ', avente numero di protocollo ' + data["protocollo-polizia"]);
+  } else {
+    body.replaceText('{{Avente Protocollo polizia}}', ' ');
+  }
+
+  //Close and saves new doc
+  doc.saveAndClose();
+  const url = doc.getUrl();
+
+}
+
+function createNewFolder(data,userInput) {
+
+  //// Prompt the user for the row number if we don't already have it
+  if (!userInput) {
+    userInput = uiPrompt(); 
+  }
+  
+  // Get the values of the specified row if we don't already have it
+  if (!data) {
+    data = retrieveData(userInput);
+  }
+
+  //Creation of the folder if there isn't
+  const folderName = data["interno"];
+  const folders = destinationFolder.getFoldersByName(folderName);
+  let folder;
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    folder = destinationFolder.createFolder(folderName);
+  }
+
+  return folder; // returning the place where the folder was created
 
 }
