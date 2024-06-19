@@ -1,7 +1,7 @@
 //to use on your own projects replace the file ID with the file ID of your Google Docs template.
-const googleDocTemplate = DriveApp.getFileById('1n7atkeLPfmlTWieZqmmbR1rcIBGPgzzoF8lI8z16sZo');
+const googleDocTemplate = DriveApp.getFileById('YOUR_GOOGLE_DOCS_ID');
 //replace with the folder ID for the folder you want to the printouts to be stored in
-const destinationFolder = DriveApp.getFolderById('1h-AOLQxc9qOb8Y-AzssjnjCqt0q6fhUA');
+const destinationFolder = DriveApp.getFolderById('YOUR_GOOGLE_FOLDER_ID');
 
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
